@@ -1,13 +1,11 @@
 #include "utils.h"
 
-void populate() {
+void populate(double* features) {
     if (PREDICTION->days[0].bias == 0 && PREDICTION->days[0].sd == 0) {exit(1);}
     
-    double* features = (double*)malloc(sizeof(double) * NR_FEATURES);
     double* computed = (double*)malloc(sizeof(double) * PREDICTION->len_days);
     int last = LAST;
     
-    calculate_features(features, COMPANY, last);
     predict(computed, features);
 
     PREDICTION->today= TODAY;
@@ -28,21 +26,17 @@ void populate() {
         PREDICTION->days[i].bias = COMPANY->samples[last].c * (exp(PREDICTION->days[i].bias) - 1);
     }
     
-    
-    free(features);
     free(computed);
 }
 
-void populate_error_metrics() {
-    double* features = (double*)malloc(sizeof(double) * NR_FEATURES);
+void populate_error_metrics(double** features) {
     double* computed = (double*)malloc(sizeof(double) * PREDICTION->len_days);
     double* expected = (double*)malloc(sizeof(double) * PREDICTION->len_days);
 
     // -------------------------------------------------------------------------------------------
     // BIAS
     for (int time = 20; time < LAST + 1; time += 1) {
-        calculate_features(features, COMPANY, time);
-        predict(computed, features);
+        predict(computed, features[time]);
         expect(expected, time);
 
         if (time + 1 < LAST + 1) {
@@ -67,8 +61,7 @@ void populate_error_metrics() {
 
     // Standard Deviation
     for (int time = 20; time < LAST + 1; time += 1) {
-        calculate_features(features, COMPANY, time);
-        predict(computed, features);
+        predict(computed, features[time]);
         expect(expected, time);
 
         if (time + 1 < LAST + 1) {
@@ -95,7 +88,6 @@ void populate_error_metrics() {
     PREDICTION->days[2].sd = sqrt(PREDICTION->days[2].sd);
     PREDICTION->days[3].sd = sqrt(PREDICTION->days[3].sd);
 
-    free(features);
     free(computed);
     free(expected);
 }

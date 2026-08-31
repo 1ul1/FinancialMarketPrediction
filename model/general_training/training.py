@@ -70,7 +70,7 @@ class Companies(ctypes.Structure):
         self.companies = None if len_companies == 0 else (Company * len_companies)()
 
         for i, f in enumerate(files):
-            with open(f"../../stocks/{f}", "r") as file:
+            with open(f"../../../stocks/{f}", "r") as file:
                 data = json.load(file)
                 try:
                     self.companies[i] = Company(data["ticker"], data["count"], data["results"])
@@ -85,7 +85,9 @@ class Weights(ctypes.Structure):
         ("len_weights", ctypes.c_int),
         ("weights", ctypes.POINTER(ctypes.c_double)),
         ("len_bias", ctypes.c_int),
-        ("bias", ctypes.POINTER(ctypes.c_double))
+        ("bias", ctypes.POINTER(ctypes.c_double)),
+        ("means", ctypes.POINTER(ctypes.c_double)),
+        ("standard_deviations", ctypes.POINTER(ctypes.c_double)),
     ]
 
     def __init__(self, len_weights = 0, results: list[float] = None, len_bias: int = 0, results_bias: list[float] = None):
@@ -96,6 +98,8 @@ class Weights(ctypes.Structure):
         self.weights = (ctypes.c_double * len_weights)()
         self.len_bias = len_bias
         self.bias = (ctypes.c_double * len_bias)()
+        self.means = (ctypes.c_double * (len_weights // len_bias))()
+        self.standard_deviations = (ctypes.c_double * (len_weights // len_bias))()
 
         for i, r in enumerate(results):
             self.weights[i] = r
@@ -104,6 +108,12 @@ class Weights(ctypes.Structure):
         for i, r in enumerate(results_bias):
             self.bias[i] = r
             # print(f"B {i} - {r}")
+
+        for i in range(len_weights // len_bias):
+            self.means[i] = 0
+            
+        for i in range(len_weights // len_bias):
+            self.standard_deviations[i] = 0
 
     def print(self):
         for i in range(self.len_weights):
@@ -117,7 +127,15 @@ class Weights(ctypes.Structure):
             file.write("_\n")
             file.write("_".join(format(self.bias[i], ".17g") for i in range(self.len_bias)))
             file.write("_\n")
+            file.write("_".join(format(self.means[i], ".17g") for i in range(self.len_weights // self.len_bias)))
+            file.write("_\n")
+            file.write("_".join(format(self.standard_deviations[i], ".17g") for i in range(self.len_weights // self.len_bias)))
+            file.write("_\n")
             print("Weights Saved!\n")
+
+            for i in range(self.len_weights // self.len_bias):
+                self.means[i] = 0
+                self.standard_deviations[i] = 0
 
 MARKET: Company = None
 COMPANIES: Companies = None
@@ -135,32 +153,33 @@ lib.start.argtypes = [Companies, Company, Weights]
 lib.start.restype = None
 
 def aux():
-    global MARKET, COMPANIES
+    global MARKET, COMPANIES, WEIGHTS
     
-    files = os.listdir("../../stocks")
+    files = os.listdir("../../../stocks")
     
     COMPANIES = Companies(len(files), files)
 
-    with open("../../market/SPY.json", "r") as file:
+    with open("../../../market/SPY.json", "r") as file:
         data = json.load(file)
         MARKET = Company(data["ticker"], data["count"], data["results"])
 
     with open("./model_weights", "r") as file:
         weights, bias = file.readline(), file.readline()
 
-        try:
-            weights = [float(value) for value in weights.split("_")[:-1:]]
-            bias = [float(value) for value in bias.split("_")[:-1:]]
-            
-            WEIGHTS = Weights(len(weights), weights, len(bias), bias)
-        except:
-            print("empty weights data")
+        weights = [float(value) for value in weights.split("_")[:-1:]]
+        bias = [float(value) for value in bias.split("_")[:-1:]]
+        
+        WEIGHTS = Weights(len(weights), weights, len(bias), bias)
+
+    if not (COMPANIES and MARKET and WEIGHTS):
+        print("IO failure")
+        
     try:
         while True:
             lib.start(COMPANIES, MARKET, WEIGHTS)
             WEIGHTS.static_save()
-    except:
-        print("IO failure")
+    except Exception as e:
+        print(e)
 
     if len(sys.argv) > 1 and sys.argv[1] == "verify":
         print(f"COUNTER_SAMPLE: {COUNTER_SAMPLE}________________COUNTER_COMPANY:{COUNTER_COMPANY}")
@@ -177,12 +196,20 @@ def reset_weights():
         for _ in range(4):
             file.write("0_")
         file.write("\n")
+        for _ in range(nr_features):
+            file.write("0_")
+        file.write("\n")
+        for _ in range(nr_features):
+            file.write("0_")
+        file.write("\n")
 
 def test_py_c_bridge():
     print(lib.get_nr_features())
     
 if __name__ == "__main__":
     print("")
+
+    reset_weights()
 
     if len(sys.argv) > 1 and sys.argv[1] == "reset":
         reset_weights()

@@ -222,7 +222,7 @@ double return_volatility_relative_to_market(
     return sqrt(ans);
 }
 
-static inline double return_covariance_to_market(
+double return_covariance_to_market(
     int start,
     int end,
     const Company* over,
@@ -298,14 +298,12 @@ void expect(double* res, int time) {
     }
 }
 
-void error(double* ans) {
-    double* features = (double*)malloc(sizeof(double) * NR_FEATURES);
+void error(double* ans, double** features) {
     double* computed = (double*)malloc(sizeof(double) * 4);
     double* expected = (double*)malloc(sizeof(double) * 4);
 
     for (int time = 20; time <= LAST - 20; time += 1) {
-        calculate_features(features, COMPANY, time);
-        predict(computed, features);
+        predict(computed, features[time]);
         expect(expected, time);
 
         for (int idx = 0; idx < 4; idx += 1) {
@@ -318,7 +316,6 @@ void error(double* ans) {
         ans[idx] = sqrt(ans[idx]);
     }
 
-    free(features);
     free(computed);
     free(expected);
 }
@@ -340,4 +337,23 @@ void error_no_training(double* ans) {
     }
 
     free(expected);
+}
+
+void print_skill(double** features) {
+    double* ans1 = calloc(4, sizeof(double));
+    double* ans2 = calloc(4, sizeof(double));
+    double skill = 0;
+    
+    error(ans1, features);
+    error_no_training(ans2);
+
+    printf("\n");
+    
+    for (int i = 0; i < 4; i += 1) {
+        printf("Delta RMSE %.16f for Layer %d\n", ans1[i] / ans2[i] * 100,i);
+        skill += ans1[i] / ans2[i];
+    }
+    
+    free(ans1);
+    free(ans2);
 }

@@ -4,10 +4,10 @@ Company* MARKET = NULL;
 Weights* WEIGHTS = NULL;
 Companies* COMPANIES = NULL;
 
-double ALPHA = 0.001;
+double ALPHA = 0.0001;
 double BETA = 0.01;
 int EPOCHS = 1;
-double LAMBDA = 0.0005;
+double LAMBDA = 0.00005;
 
 int NR_THREADS = 12;
 
@@ -18,7 +18,7 @@ int get_nr_features() {
 
 int NR_COMPANIES = 0;
 
-void calculate_features(double* features, const Company* company, int time) {
+void calculate_raw_features(double* features, const Company* company, int time) {
 
     if (time - 20 < 0) {exit(1);}
 
@@ -222,6 +222,52 @@ void calculate_features(double* features, const Company* company, int time) {
     features[71] = log(s.c / s1.c) - alpha_20 - beta_20 * log(market_s.c / market_s1.c);
 }
 
+void calculate_features(double*** features) {
+    for (int time = 20; time < MARKET->count; time += 1) {
+        features[time] = (double**)malloc(sizeof(double*) * NR_COMPANIES);
+        
+        for (int i = 0; i < NR_COMPANIES; i += 1) {
+            features[time][i] = (double*)malloc(sizeof(double) * NR_FEATURES);
+            
+            calculate_raw_features(features[time][i], &(COMPANIES->companies[i]), time);
+
+            // Means
+            for (int f = 0; f < NR_FEATURES; f += 1) {
+                WEIGHTS->means[f] += features[time][i][f];
+            }
+        }
+    }
+    for (int f = 0; f < NR_FEATURES; f += 1) {
+        WEIGHTS->means[f] /= ((MARKET->count - 20) * NR_COMPANIES);
+    }
+    // Standard_deviations
+    for (int time = 20; time < MARKET->count; time += 1) {   
+        for (int i = 0; i < NR_COMPANIES; i += 1) {
+            for (int f = 0; f < NR_FEATURES; f += 1) {
+                WEIGHTS->standard_deviations[f] += pow(
+                    features[time][i][f] - WEIGHTS->means[f]
+                    ,
+                    2
+                );
+            }
+        }
+    }
+    for (int f = 0; f < NR_FEATURES; f += 1) {
+        WEIGHTS->standard_deviations[f] /= ((MARKET->count - 20) * NR_COMPANIES);
+        WEIGHTS->standard_deviations[f] = sqrt(WEIGHTS->standard_deviations[f]);
+    }
+
+    // Center and Scale || FIX all features among the universe
+    for (int time = 20; time < MARKET->count; time += 1) {   
+        for (int i = 0; i < NR_COMPANIES; i += 1) {
+            for (int f = 0; f < NR_FEATURES; f += 1) {
+                features[time][i][f] = (WEIGHTS->standard_deviations[f] < 1e-12) ? 0.0
+                    : (features[time][i][f] - WEIGHTS->means[f]) / WEIGHTS->standard_deviations[f];
+            }
+        }
+    }
+}
+
 void adjust_updates(const Company* company,
     double* updates,
     const double* features,
@@ -248,11 +294,7 @@ void adjust_updates(const Company* company,
     updates[WEIGHTS->len_weights + start / NR_FEATURES] += error / NR_COMPANIES;
 }
 
-void process_one_company(const Company* company, double* updates, int time) {
-    
-    double* features = (double*)malloc(sizeof(double) * NR_FEATURES);
-
-    calculate_features(features, company, time);
+void process_one_company(const Company* company, double* updates, int time, double* features) {
 
     if (MARKET->count - time > 1) {
         int start = 0, end = NR_FEATURES;
@@ -273,8 +315,6 @@ void process_one_company(const Company* company, double* updates, int time) {
         int start = NR_FEATURES * 3, end = NR_FEATURES * 4;
         adjust_updates(company, updates, features, time, time + 20, start, end);
     }
-
-    free(features);
 }
 
 void print_weights() {
@@ -296,11 +336,14 @@ void train(
 
     int iter = 0;
 
+    double*** features = (double***)malloc(sizeof(double**) * (MARKET->count));
+    calculate_features(features);
+
     repeat:
 
     // Check Error
     double* ans1 = calloc(4, sizeof(double));
-    error(ans1);
+    error(ans1, features);
     printf("\n");
     for (int i = 0; i < 4; i += 1) {
         printf("RMSE %.16f for Layer %d\n", ans1[i],i);
@@ -314,7 +357,7 @@ void train(
 
             // calculate gi for each wi and save it in updates
             for (int i = 0; i < NR_COMPANIES; i += 1) {
-                process_one_company(&(companies.companies[i]), updates, time);
+                process_one_company(&(companies.companies[i]), updates, time, features[time][i]);
             }
 
             // update wi using -= ALPHA * gi
@@ -330,7 +373,7 @@ void train(
     }
 
     double* ans2 = calloc(4, sizeof(double));
-    error(ans2);
+    error(ans2, features);
 
     int nr = 0;
     
@@ -340,15 +383,19 @@ void train(
         }
     }
 
+    // FREEING
     free(ans1);
     free(ans2);
     
-    if (nr == 4) {
-        ALPHA /= 2;
-        return;
-    }
-
-    if (iter == 20) {
+    if (nr == 4 || iter == 20) {
+        if (nr == 4) {ALPHA /= 2;}
+        for (int time = 20; time < MARKET->count; time += 1) {
+            for (int i = 0; i < NR_COMPANIES; i += 1) {
+                free(features[time][i]);
+            }
+            free(features[time]);
+        }
+        free(features);
         return;
     }
 

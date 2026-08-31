@@ -32,6 +32,8 @@ typedef struct Weights {
     double* weights;
     int len_bias;
     double* bias;
+    double* means;
+    double* standard_deviations;
 } Weights;
 
 typedef struct Day {
@@ -49,16 +51,17 @@ typedef struct Prediction {
     Day* days;
 } Prediction;
 
-void calculate_features(double* features, const Company* company, int time);
+void calculate_raw_features(double* features, const Company* company, int time);
+void calculate_features(double** features);
 
 // ---------------------------------------------------------------------------
 //                                                            Global Variables
 // ---------------------------------------------------------------------------
 
-Company* MARKET;
-Company* COMPANY;
-Weights* WEIGHTS;
-Prediction* PREDICTION;
+extern Company* MARKET;
+extern Company* COMPANY;
+extern Weights* WEIGHTS;
+extern Prediction* PREDICTION;
 
 extern double ALPHA;
 extern double BETA;
@@ -126,7 +129,7 @@ double return_volatility_relative_to_market(
     const Company* over,
     const Company* market
 );
-static inline double return_covariance_to_market(
+double return_covariance_to_market(
     int start,
     int end,
     const Company* over,
@@ -134,15 +137,17 @@ static inline double return_covariance_to_market(
 );
 void predict(double* res, double* features);
 void expect(double* res, int time);
-void error(double* ans);
+void error(double* ans, double** features);
 void error_no_training(double* ans);
+void print_skill(double** features);
+
 
 // ---------------------------------------------------------------------------
 //                                                                  Prediction
 // ---------------------------------------------------------------------------
 
-void populate();
-void populate_error_metrics();
+void populate(double* features);
+void populate_error_metrics(double** features);
 
 // ---------------------------------------------------------------------------
 //                                                                  Finetuning
@@ -155,12 +160,12 @@ void adjust_updates(const Company* company,
     int start,
     int end
 );
-void process_one_company(const Company* company, double* updates, int time);
+void process_one_company(const Company* company, double* updates, int time, double* features);
 void train(
     const Company company,
     const Company market,
-    Weights weights
+    Weights weights,
+    double** features
 );
-void print_skill();
 
 #endif

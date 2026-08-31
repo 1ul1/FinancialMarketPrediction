@@ -1,8 +1,13 @@
 #include "utils.h"
 
-double ALPHA = 0.01;
+Company* MARKET = NULL;
+Company* COMPANY = NULL;
+Weights* WEIGHTS = NULL;
+Prediction* PREDICTION = NULL;
+
+double ALPHA = 0.0001;
 double BETA = 0.01;
-double LAMBDA = 0.0005;
+double LAMBDA = 0.000005;
 
 int EPOCHS = 100;
 

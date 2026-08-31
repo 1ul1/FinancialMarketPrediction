@@ -13,11 +13,22 @@ void start(
     TODAY = is_today(COMPANY);
     LAST = TODAY ? COMPANY->count - 2: COMPANY->count - 1;
 
-    print_skill();
-    populate_error_metrics();
+    double** features = (double**)malloc(sizeof(double*) * MARKET->count);
+    for (int time = 20; time < MARKET->count; time += 1) {
+        features[time] = (double*)malloc(sizeof(double) * NR_FEATURES);
+    }
+    calculate_features(features);
+    
+    print_skill(features);
+    populate_error_metrics(features);
 
-    train(company, market, weights);
-    print_skill();
+    train(company, market, weights, features);
+    print_skill(features);
 
-    populate();
+    populate(features[LAST]);
+
+    for (int time = 20; time < MARKET->count; time += 1) {
+        free(features[time]);
+    }
+    free(features);
 }

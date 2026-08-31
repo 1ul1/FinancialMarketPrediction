@@ -26,11 +26,7 @@ void adjust_updates(const Company* company,
     updates[WEIGHTS->len_weights + start / NR_FEATURES] += error;
 }
 
-void process_one_company(const Company* company, double* updates, int time) {
-    
-    double* features = (double*)malloc(sizeof(double) * NR_FEATURES);
-
-    calculate_features(features, company, time);
+void process_one_company(const Company* company, double* updates, int time, double* features) {
 
     if (LAST + 1 - time > 1) {
         int start = 0, end = NR_FEATURES;
@@ -51,22 +47,18 @@ void process_one_company(const Company* company, double* updates, int time) {
         int start = NR_FEATURES * 3, end = NR_FEATURES * 4;
         adjust_updates(company, updates, features, time, time + 20, start, end);
     }
-
-    free(features);
 }
 
 void train(
     const Company company,
     const Company market,
-    Weights weights
+    Weights weights,
+    double** features
 ) {
     for (int k = 0; k < EPOCHS; k += 1) {
-        // Check Error
+        
         double* ans = calloc(4, sizeof(double));
-        error(ans);
-        // for (int i = 0; i < 4; i += 1) {
-        //     printf("RMSE %.16f for Layer %d\n", ans[i],i);
-        // }
+        error(ans, features);
 
         double alpha = ALPHA * exp((-1) * BETA * k);
             
@@ -75,7 +67,7 @@ void train(
             double* updates = (double*)calloc(WEIGHTS->len_weights + WEIGHTS->len_bias, sizeof(double));
 
             // calculate gi for each wi and save it in updates
-            process_one_company(&company, updates, time);
+            process_one_company(&company, updates, time, features[time]);
 
             // update wi using -= ALPHA * gi
             for (int i = 0; i < WEIGHTS->len_weights; i += 1) {
@@ -91,7 +83,7 @@ void train(
         }
 
         double* ans2 = calloc(4, sizeof(double));
-        error(ans2);
+        error(ans2, features);
 
         int nr = 0;
         
@@ -106,23 +98,4 @@ void train(
         
         if (nr == 4) {ALPHA /= 2;}
     }
-}
-
-void print_skill() {
-    double* ans1 = calloc(4, sizeof(double));
-    double* ans2 = calloc(4, sizeof(double));
-    double skill = 0;
-    
-    error(ans1);
-    error_no_training(ans2);
-
-    printf("\n");
-    
-    for (int i = 0; i < 4; i += 1) {
-        printf("Delta RMSE %.16f for Layer %d\n", ans1[i] / ans2[i] * 100,i);
-        skill += ans1[i] / ans2[i];
-    }
-    
-    free(ans1);
-    free(ans2);
 }

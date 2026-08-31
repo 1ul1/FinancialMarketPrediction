@@ -41,6 +41,8 @@ typedef struct Weights {
     double* weights;
     int len_bias;
     double* bias;
+    double* means;
+    double* standard_deviations;
 } Weights;
 
 extern Weights* WEIGHTS;
@@ -48,7 +50,8 @@ extern int NR_FEATURES;
 extern int NR_COMPANIES;
 extern double ALPHA;
 
-void calculate_features(double* features, const Company* company, int time);
+void calculate_raw_features(double* features, const Company* company, int time);
+void calculate_features(double*** features);
 
 // ---------------------------------------------------------------------------
 //                                                               AUX Functions
@@ -324,15 +327,13 @@ static inline void expect(double* res, int time, Company* company) {
 }
 
 
-static inline void error(double* ans) {
-    double* features = (double*)malloc(sizeof(double) * NR_FEATURES);
+static inline void error(double* ans, double*** features) {
     double* computed = (double*)malloc(sizeof(double) * 4);
     double* expected = (double*)malloc(sizeof(double) * 4);
 
     for (int time = 20; time < MARKET->count - 20; time += 1) {
         for (int i = 0; i < NR_COMPANIES; i += 1) {
-            calculate_features(features, &(COMPANIES->companies[i]), time);
-            predict(computed, features);
+            predict(computed, features[time][i]);
             expect(expected, time, &(COMPANIES->companies[i]));
 
             for (int idx = 0; idx < 4; idx += 1) {
@@ -346,9 +347,12 @@ static inline void error(double* ans) {
         ans[idx] = sqrt(ans[idx]);
     }
 
-    free(features);
     free(computed);
     free(expected);
 }
+
+// ---------------------------------------------------------------------------
+//                                                           Feature Centering
+// ---------------------------------------------------------------------------
 
 #endif

@@ -1,6 +1,6 @@
 #include "utils.h"
 
-void calculate_features(double* features, const Company* company, int time) {
+void calculate_raw_features(double* features, const Company* company, int time) {
 
     if (time - 20 < 0) {exit(1);}
 
@@ -204,3 +204,12 @@ void calculate_features(double* features, const Company* company, int time) {
     features[71] = log(s.c / s1.c) - alpha_20 - beta_20 * log(market_s.c / market_s1.c);
 }
 
+void calculate_features(double** features) {
+    for (int time = 20; time < MARKET->count; time += 1) {
+        calculate_raw_features(features[time], COMPANY, time);
+        for (int f = 0; f < NR_FEATURES; f += 1) {
+            features[time][f] = (WEIGHTS->standard_deviations[f] < 1e-12) ? 0.0
+                : (features[time][f] - WEIGHTS->means[f]) / WEIGHTS->standard_deviations[f];
+        }
+    }
+}

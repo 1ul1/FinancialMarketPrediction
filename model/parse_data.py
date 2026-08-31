@@ -55,10 +55,19 @@ class Weights(ctypes.Structure):
         ("len_weights", ctypes.c_int),
         ("weights", ctypes.POINTER(ctypes.c_double)),
         ("len_bias", ctypes.c_int),
-        ("bias", ctypes.POINTER(ctypes.c_double))
+        ("bias", ctypes.POINTER(ctypes.c_double)),
+        ("means", ctypes.POINTER(ctypes.c_double)),
+        ("standard_deviations", ctypes.POINTER(ctypes.c_double)),
     ]
 
-    def __init__(self, len_weights = 0, len_bias: int = 0,  results: list[float] = None, results_bias: list[float] = None):
+    def __init__(self,
+        len_weights = 0,
+        len_bias: int = 0, 
+        weights: list[float] = None,
+        bias: list[float] = None,
+        means: list[float] = None,
+        standard_deviations: list[float] = None
+    ):
         super().__init__()
         
         assert (len_weights > 0 and len_bias > 0)
@@ -66,24 +75,29 @@ class Weights(ctypes.Structure):
         self.weights = (ctypes.c_double * len_weights)()
         self.len_bias = len_bias
         self.bias = (ctypes.c_double * len_bias)()
+        self.means = (ctypes.c_double * (len_weights // len_bias))()
+        self.standard_deviations = (ctypes.c_double * (len_weights // len_bias))()
 
-        if not results or not results_bias:
-
+        if not weights or not bias or not means or not standard_deviations:
+            
             for i in range(len_weights):
                 self.weights[i] = 0
-
             for i in range(len_bias):
                 self.bias[i] = 0
+            for i in range(len_weights // len_bias):
+                self.means[i] = 0
+                self.standard_deviations[i] = 0
 
         else:
             
-            for i, r in enumerate(results):
+            for i, r in enumerate(weights):
                 self.weights[i] = r
-                # print(f"W {i} - {r}")
-
-            for i, r in enumerate(results_bias):
+            for i, r in enumerate(bias):
                 self.bias[i] = r
-                # print(f"B {i} - {r}")
+            for i, r in enumerate(means):
+                self.means[i] = r
+            for i, r in enumerate(standard_deviations):
+                self.standard_deviations[i] = r
             
 
 class Day(ctypes.Structure):
@@ -157,11 +171,16 @@ def request(ticker) -> Prediction:
     else:
         file = open("./model_weights", "r")
         weights_data, bias_data = file.readline(), file.readline()
+        means_data, standard_deviations_data = file.readline(), file.readline()
 
         weights_data = [float(value) for value in weights_data.split("_")[:-1:]]
         bias_data = [float(value) for value in bias_data.split("_")[:-1:]]
+        means_data = [float(value) for value in means_data.split("_")[:-1:]]
+        standard_deviations_data = [float(value) for value in standard_deviations_data.split("_")[:-1:]]
 
-        weights = Weights(len(weights_data), len(bias_data), weights_data, bias_data)
+        weights = Weights(
+            len(weights_data), len(bias_data), weights_data, bias_data, means_data, standard_deviations_data
+        )
         
     url = (
         'https://api.massive.com/v2/aggs/ticker/'
