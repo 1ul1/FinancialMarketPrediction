@@ -29,7 +29,7 @@ $$\sqrt{\frac{1}{L}\sum\big(C_s-\bar C_L\big)^2}$$
 
 $$\sqrt{\frac{1}{L-1}\sum\big(r_s-r_{s-1}\big)^2}$$
 
-**Persistence** — lag-1 Pearson autocorrelation:
+**Persistence** — lag-1 Pearson correlation:
 
 $$\frac{\frac{1}{L-1}\sum\big(r_s-\bar X\big)\big(r_{s+1}-\bar Y\big)}{\sigma_X\,\sigma_Y}$$
 
@@ -41,7 +41,13 @@ $$\sqrt{\frac{1}{L}\sum\big(r-\bar r\big)^2}$$
 
 $$\frac{\frac{1}{L}\sum\big(r_s-\bar r_s\big)\big(r_m-\bar r_m\big)}{\sigma_s\,\sigma_m}$$
 
+****Market beta**** — stock sensitivity to market returns:
 
+$$\frac{\frac{1}{L}\sum\big(r_s-\bar r_s\big)\big(r_m-\bar r_m\big)}{\sigma_m^2}$$
+
+****Residual return**** — stock return unexplained by the market:
+
+$$r_{s,t}-\alpha-\beta r_{m,t}\qquad \text{with}\qquad \alpha=\bar r_s-\beta\bar r_m$$
 
 
 

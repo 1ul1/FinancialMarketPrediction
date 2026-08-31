@@ -247,13 +247,11 @@ static inline double return_volatility_relative_to_market(
     return sqrt(ans);
 }
 
-static inline double return_persistence_relative_to_market(
+static inline double return_covariance_to_market(
     int start,
     int end,
     const Company* over,
-    const Company* market,
-    double _standard_deviation,
-    double _market_standard_deviation
+    const Company* market
 ) {
     // Pearson but against the market
     // Its just correlation to the market
@@ -280,10 +278,8 @@ static inline double return_persistence_relative_to_market(
     }
 
     ans /= count;
-
-    double denominator = _standard_deviation * _market_standard_deviation;
-
-    return (denominator == 0) ? 0 : ans / denominator;
+    
+    return ans;
 }
 
 // ---------------------------------------------------------------------------

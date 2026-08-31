@@ -1,15 +1,15 @@
 #include "utils.h"
 
 double ALPHA = 0.01;
-double BETA = 0;
-double LAMBDA = 0.001;
+double BETA = 0.01;
+double LAMBDA = 0.0005;
 
 int EPOCHS = 100;
 
 int TODAY = 0;
 int LAST = 0;
 
-int NR_FEATURES = 68;
+int NR_FEATURES = 72;
 
 int NR_THREADS = 12;
 

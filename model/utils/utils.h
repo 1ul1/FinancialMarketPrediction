@@ -126,13 +126,11 @@ double return_volatility_relative_to_market(
     const Company* over,
     const Company* market
 );
-double return_persistence_relative_to_market(
+static inline double return_covariance_to_market(
     int start,
     int end,
     const Company* over,
-    const Company* market,
-    double _standard_deviation,
-    double _market_standard_deviation
+    const Company* market
 );
 void predict(double* res, double* features);
 void expect(double* res, int time);
