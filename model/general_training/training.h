@@ -35,6 +35,7 @@ typedef struct Companies {
 } Companies;
 
 extern Companies* COMPANIES;
+extern Companies* UNTRAINED_COMPANIES;
 
 typedef struct Weights {
     int len_weights;
@@ -49,6 +50,8 @@ extern Weights* WEIGHTS;
 extern int NR_FEATURES;
 extern int NR_COMPANIES;
 extern double ALPHA;
+extern int TRAINING_LOWER_BOUND;
+extern int TRAINING_UPPER_BOUND;
 
 void calculate_raw_features(double* features, const Company* company, int time);
 void calculate_features(double*** features);
@@ -326,29 +329,102 @@ static inline void expect(double* res, int time, Company* company) {
     }
 }
 
-
-static inline void error(double* ans, double*** features) {
+static inline void error(double* ans, double*** features, int toggle) {
     double* computed = (double*)malloc(sizeof(double) * 4);
     double* expected = (double*)malloc(sizeof(double) * 4);
 
-    for (int time = 20; time < MARKET->count - 20; time += 1) {
-        for (int i = 0; i < NR_COMPANIES; i += 1) {
+    int start = 20, end = MARKET->count - 20;
+    Companies* c = COMPANIES;
+
+    if (toggle == 0) {
+        start = TRAINING_LOWER_BOUND;
+        end = TRAINING_UPPER_BOUND;
+        c = UNTRAINED_COMPANIES;
+    }
+
+    int count = 0;
+
+    for (int time = start; time < end; time += 1) {
+
+        if (toggle == 1 && 
+            TRAINING_LOWER_BOUND <= time && time < TRAINING_UPPER_BOUND
+        ) {continue;}
+        
+        for (int i = 0; i < c->len_companies; i += 1) {
             predict(computed, features[time][i]);
-            expect(expected, time, &(COMPANIES->companies[i]));
+            expect(expected, time, &(c->companies[i]));
 
             for (int idx = 0; idx < 4; idx += 1) {
                 ans[idx] += pow(computed[idx] - expected[idx], 2);
             }
+            count += 1;
         }
     }
 
     for (int idx = 0; idx < 4; idx += 1) {
-        ans[idx] /= (MARKET->count - 40) * NR_COMPANIES;
+        ans[idx] /= count;
         ans[idx] = sqrt(ans[idx]);
     }
 
     free(computed);
     free(expected);
+}
+
+static inline void baseline_error(double* ans, int toggle) {
+    double* expected = (double*)malloc(sizeof(double) * 4);
+
+    int start = 20, end = MARKET->count - 20;
+    Companies* c = COMPANIES;
+
+    if (toggle == 0) {
+        start = TRAINING_LOWER_BOUND;
+        end = TRAINING_UPPER_BOUND;
+        c = UNTRAINED_COMPANIES;
+    }
+    
+    int count = 0;
+
+    for (int time = start; time < end; time += 1) {
+        
+        if (toggle == 1 && 
+            TRAINING_LOWER_BOUND <= time && time < TRAINING_UPPER_BOUND
+        ) {continue;}
+        
+        for (int i = 0; i < c->len_companies; i += 1) {
+            expect(expected, time, &(c->companies[i]));
+
+            for (int idx = 0; idx < 4; idx += 1) {
+                ans[idx] += pow(0 - expected[idx], 2);
+            }
+            count += 1;
+        }
+    }
+
+    for (int idx = 0; idx < 4; idx += 1) {
+        ans[idx] /= count;
+        ans[idx] = sqrt(ans[idx]);
+    }
+
+    free(expected);
+}
+
+void print_skill(double*** features) {
+    double* ans1 = calloc(4, sizeof(double));
+    double* ans2 = calloc(4, sizeof(double));
+    double skill = 0;
+    
+    error(ans1, features, 0);
+    baseline_error(ans2, 0);
+
+    printf("\n");
+    
+    for (int i = 0; i < 4; i += 1) {
+        printf("Delta RMSE %.16f for Layer %d\n", (1 -  ans1[i] / ans2[i]) * 100,i);
+        skill += ans1[i] / ans2[i];
+    }
+    
+    free(ans1);
+    free(ans2);
 }
 
 // ---------------------------------------------------------------------------

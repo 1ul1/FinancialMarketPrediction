@@ -1,4 +1,4 @@
-# The Stock Prediction Model behind [predictions.byebility.com](https://predictions.byebility.com)
+# The Stock Prediction Model behind [byebility.com](https://predictions.byebility.com)
 
 - **Ridge regression model** for stock return forecasting written in raw C, no external ML framework or numerical library anywhere in the loop.
 - Data is collected and validated by a self-written scraper.
@@ -9,7 +9,8 @@
 - Market reference: SPY
 - 50+ features per sample
 - 4 independent predictions (1/5/10/20 day returns)
-- Weights are pretrained across the entire company universe, then fine-tuned and calibrated per ticker before each forecast
+- Weights are pretrained across a company universe, then fine-tuned and calibrated per ticker before each forecast
+- True out-of-sample skill is measured against a zero-return RMSE, on unseen stocks during a time window excluded from training
 
 ## Output
 
@@ -80,14 +81,9 @@ Every sample is validated, any faulty data (either missing timeframes or null fi
 
 ![Price distribution](plots/stock_universe_plots/price_distribution.png)
 
-
 ![Volume distribution](plots/stock_universe_plots/volume_distribution.png)
 
-
 ![Volatility distribution](plots/stock_universe_plots/volatility_distribution.png)
-
-![Return distribution](plots/stock_universe_plots/return_distribution.png)
-
 
 ![Volatility vs liquidity](plots/stock_universe_plots/volatility_vs_liquidity.png)
 
@@ -132,7 +128,3 @@ Current IQR
 Every time a forecast is requested for a ticker, the pretrained weights are adapted specifically to that company before predicting, using ridge regression once again.
 
 If the most recent bar in the data belongs to today's still-open session, it's excluded from both fine-tuning and calibration, so the model never trains or predicts on a price that hasn't closed yet.
-
-## Conclusions
-
-In its current form, for unseen stocks the model stagnates at around a 1-2% decrease in RMSE compared to the baseline (just predicting return 0), which could also just be indirect overfitting to the current time window (the current API I use only exposes at most 2 years, this being the biggest bottleneck throughout the project). More training beyond this point and the model just overfits the universe's data.

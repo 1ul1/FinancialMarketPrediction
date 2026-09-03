@@ -139,6 +139,7 @@ class Weights(ctypes.Structure):
 
 MARKET: Company = None
 COMPANIES: Companies = None
+UNTRAINED_COMPANIES: Companies = None
 WEIGHTS: Weights = None
 
 COUNTER_SAMPLE: int = 0
@@ -149,7 +150,7 @@ lib = ctypes.CDLL("./libtraining.dylib")
 lib.get_nr_features.argtypes = []
 lib.get_nr_features.restype = ctypes.c_int
 
-lib.start.argtypes = [Companies, Company, Weights]
+lib.start.argtypes = [Companies, Companies, Company, Weights]
 lib.start.restype = None
 
 def aux():
@@ -158,6 +159,10 @@ def aux():
     files = os.listdir("../../../stocks")
     
     COMPANIES = Companies(len(files), files)
+
+    files = os.listdir("../../../untrained_stocks")
+
+    UNTRAINED_COMPANIES = Companies(len(files), files)
 
     with open("../../../market/SPY.json", "r") as file:
         data = json.load(file)
@@ -176,7 +181,7 @@ def aux():
         
     try:
         while True:
-            lib.start(COMPANIES, MARKET, WEIGHTS)
+            lib.start(COMPANIES, UNTRAINED_COMPANIES, MARKET, WEIGHTS)
             WEIGHTS.static_save()
     except Exception as e:
         print(e)

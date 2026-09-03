@@ -166,21 +166,27 @@ GREEN = "\033[32m"
 YELLOW = "\033[33m"
 RESET = "\033[0m"
 
-API_KEY = os.environ.get("MASSIVE_KEY")
+ALPACA_KEY = os.environ.get("ALPACA_KEY")
+ALPACA_SECRET = os.environ.get("ALPACA_SECRET")
 
 for stock in STOCKS[::]:
-    command: str = (
-                f'curl -X GET "https://api.massive.com/v2/aggs/ticker/{stock}/range/1/day/2024-08-14/2026-08-13' +
-                f'?adjusted=true&sort=asc&limit=10000&apiKey={API_KEY}" > ./{stock}.json'
-            )
+    command: str = 
+f"""
+curl --request GET \
+     --url 'https://data.alpaca.markets/v2/stocks/bars?symbols={}&timeframe=1D&start=2016-01-01&end=2026-09-01&limit=10000&adjustment=all&feed=sip&sort=asc' \
+     --header 'APCA-API-KEY-ID: {ALPACA_KEY}' \
+     --header 'APCA-API-SECRET-KEY: {ALPACA_SECRET}' \
+     --header 'accept: application/json' \
+     > ./{stock}.json
+"""
     
     while True:
         os.system(command)
         try:
             with open(f"./{stock}.json", "r") as f:
                 data = json.load(f)
-                assert ("count" in data)
-                if data["count"] == 501:
+                assert (stock in data)
+                if len(data[stock]) == 501:
                     print(GREEN + f"Succeeded for {stock}" + RESET)
                 else:
                     os.system(f"rm ./{stock}.json")

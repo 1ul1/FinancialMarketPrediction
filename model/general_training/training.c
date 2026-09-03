@@ -3,6 +3,10 @@
 Company* MARKET = NULL;
 Weights* WEIGHTS = NULL;
 Companies* COMPANIES = NULL;
+Companies* UNTRAINED_COMPANIES = NULL;
+
+int TRAINING_LOWER_BOUND = 0;
+int TRAINING_UPPER_BOUND = 0;
 
 double ALPHA = 0.0001;
 double BETA = 0.01;
@@ -224,13 +228,8 @@ void calculate_raw_features(double* features, const Company* company, int time) 
 
 void calculate_features(double*** features) {
     for (int time = 20; time < MARKET->count; time += 1) {
-        features[time] = (double**)malloc(sizeof(double*) * NR_COMPANIES);
-        
         for (int i = 0; i < NR_COMPANIES; i += 1) {
-            features[time][i] = (double*)malloc(sizeof(double) * NR_FEATURES);
-            
             calculate_raw_features(features[time][i], &(COMPANIES->companies[i]), time);
-
             // Means
             for (int f = 0; f < NR_FEATURES; f += 1) {
                 WEIGHTS->means[f] += features[time][i][f];
@@ -260,6 +259,18 @@ void calculate_features(double*** features) {
     // Center and Scale || FIX all features among the universe
     for (int time = 20; time < MARKET->count; time += 1) {   
         for (int i = 0; i < NR_COMPANIES; i += 1) {
+            for (int f = 0; f < NR_FEATURES; f += 1) {
+                features[time][i][f] = (WEIGHTS->standard_deviations[f] < 1e-12) ? 0.0
+                    : (features[time][i][f] - WEIGHTS->means[f]) / WEIGHTS->standard_deviations[f];
+            }
+        }
+    }
+}
+
+void calculate_untrained_features(double*** features) {
+    for (int time = TRAINING_LOWER_BOUND; time < TRAINING_UPPER_BOUND; time += 1) {   
+        for (int i = 0; i < UNTRAINED_COMPANIES->len_companies; i += 1) {
+            calculate_raw_features(features[time][i], &(UNTRAINED_COMPANIES->companies[i]), time);
             for (int f = 0; f < NR_FEATURES; f += 1) {
                 features[time][i][f] = (WEIGHTS->standard_deviations[f] < 1e-12) ? 0.0
                     : (features[time][i][f] - WEIGHTS->means[f]) / WEIGHTS->standard_deviations[f];
@@ -337,19 +348,39 @@ void train(
     int iter = 0;
 
     double*** features = (double***)malloc(sizeof(double**) * (MARKET->count));
-    calculate_features(features);
+    double*** untrained_features = (double***)malloc(sizeof(double**) * (MARKET->count));
+                
+    for (int time = 20; time < MARKET->count; time += 1) {
+        features[time] = (double**)malloc(sizeof(double*) * NR_COMPANIES);
+        for (int i = 0; i < NR_COMPANIES; i += 1) {
+            features[time][i] = (double*)malloc(sizeof(double) * NR_FEATURES);
+            calculate_raw_features(features[time][i], &(COMPANIES->companies[i]), time);
+        }
+    }
+        
+    for (int time = TRAINING_LOWER_BOUND; time < TRAINING_UPPER_BOUND; time += 1) {
+        untrained_features[time] = (double**)malloc(sizeof(double*) * NR_COMPANIES);
+        for (int i = 0; i < UNTRAINED_COMPANIES->len_companies; i += 1) {
+            untrained_features[time] = (double*)malloc(sizeof(double) * NR_FEATURES);
+        }
+    }
+    calculate_features(features); // Calculates Means and SDS too
+    calculate_untrained_features(untrained_features);
 
     repeat:
 
     // Check Error
     double* ans1 = calloc(4, sizeof(double));
-    error(ans1, features);
+    error(ans1, features, 1);
     printf("\n");
     for (int i = 0; i < 4; i += 1) {
         printf("RMSE %.16f for Layer %d\n", ans1[i],i);
     }
         
     for (int time = 20; time < MARKET->count; time += 1) {
+
+        if (TRAINING_LOWER_BOUND <= time && time < TRAINING_UPPER_BOUND) {continue;}
+        
         for (int k = 0; k < EPOCHS; k += 1) {
             double* updates = (double*)calloc(WEIGHTS->len_weights + WEIGHTS->len_bias, sizeof(double));
 
@@ -373,7 +404,7 @@ void train(
     }
 
     double* ans2 = calloc(4, sizeof(double));
-    error(ans2, features);
+    error(ans2, features, 1);
 
     int nr = 0;
     
@@ -388,6 +419,9 @@ void train(
     free(ans2);
     
     if (nr == 4 || iter == 20) {
+        // True Skill on Trully unseen Companies over a unseed timeframe
+        print_skill(untrained_features);
+        
         if (nr == 4) {ALPHA /= 2;}
         for (int time = 20; time < MARKET->count; time += 1) {
             for (int i = 0; i < NR_COMPANIES; i += 1) {
@@ -395,7 +429,15 @@ void train(
             }
             free(features[time]);
         }
+        for (int time = TRAINING_LOWER_BOUND; time < TRAINING_UPPER_BOUND; time += 1) {
+            for (int i = 0; i < UNTRAINED_COMPANIES->len_companies; i += 1) {
+                free(untrained_features[time][i]);
+            }
+            free(untrained_features[time]);
+        }
         free(features);
+        free(untrained_features);
+        
         return;
     }
 
@@ -406,6 +448,7 @@ void train(
 
 void start(
     const Companies companies,
+    const Companies untrained_companies,
     const Company market,
     Weights weights
 ) {
@@ -413,5 +456,10 @@ void start(
     WEIGHTS = &weights;
     NR_COMPANIES = companies.len_companies;
     COMPANIES = &companies;
+    UNTRAINED_COMPANIES = &untrained_companies;
+    
+    TRAINING_LOWER_BOUND = MARKET->count / 6 * 2,
+    TRAINING_UPPER_BOUND = MARKET->count / 6 * 3;
+    
     train(companies, market, weights);
 }

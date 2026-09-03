@@ -18,7 +18,6 @@ void adjust_updates(const Company* company,
 
     double error = prediction - expected;
 
-    // printf("ERROR %.16f \n", error);
 
     for (int i = start; i < end; i += 1) {
         updates[i] += error * features[i - start] + LAMBDA * WEIGHTS->weights[i];
@@ -56,9 +55,6 @@ void train(
     double** features
 ) {
     for (int k = 0; k < EPOCHS; k += 1) {
-        
-        double* ans = calloc(4, sizeof(double));
-        error(ans, features);
 
         double alpha = ALPHA * exp((-1) * BETA * k);
             
@@ -81,21 +77,5 @@ void train(
             
             free(updates);
         }
-
-        double* ans2 = calloc(4, sizeof(double));
-        error(ans2, features);
-
-        int nr = 0;
-        
-        for (int i = 0; i < 4; i += 1) {
-            if (ans2[i] >= ans[i]) {
-                nr += 1;
-            }
-        }
-
-        free(ans);
-        free(ans2);
-        
-        if (nr == 4) {ALPHA /= 2;}
     }
 }
